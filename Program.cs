@@ -19,18 +19,14 @@ else
         var connectionString = "";
         builder.UseAzureStorageClustering(options =>
             options.ConfigureTableServiceClient(connectionString))
-        .AddAzureTableGrainStorage("emailStore", options => options.ConfigureTableServiceClient(connectionString));
+        .AddAzureBlobGrainStorage("emailStore", options => options.ConfigureBlobServiceClient(connectionString));
     });
 }
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// this should be always available, because I want to save it to cloud with Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
