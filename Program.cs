@@ -16,14 +16,10 @@ else
 {
     builder.Host.UseOrleans(builder =>
     {
-        var connectionString = "your_storage_connection_string";
-
-        builder.AddAzureBlobGrainStorage("emailStore", options => options.ConfigureBlobServiceClient(connectionString));
-        builder.Configure<ClusterOptions>(options =>
-        {
-            options.ClusterId = "emails-storage";
-            options.ServiceId = "emails";
-        });
+        var connectionString = "";
+        builder.UseAzureStorageClustering(options =>
+            options.ConfigureTableServiceClient(connectionString))
+        .AddAzureTableGrainStorage("emailStore", options => options.ConfigureTableServiceClient(connectionString));
     });
 }
 
@@ -38,18 +34,56 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapGet("/emails/{email}", 
+    async (IGrainFactory grains, HttpRequest request, string email) =>
+    {
+        var emailSplit = email.Split("@");
+        if (emailSplit.Length != 2)
+        {
+            return Results.BadRequest();
+        }
 
-app.MapGet("/emails/{email}", (string email) =>
-{
-    return $"Got GET {email}";
-})
+        var domain = emailSplit.Last().ToString().Trim();
+        var emailGrain = grains.GetGrain<IEmailGrain>(domain);
+        var emailList = await emailGrain.GetEmailsByDomain();
+
+        if (emailList == null || !emailList.Contains(email)) {
+            return Results.NotFound();
+        } else
+        {
+            return Results.Ok();
+        }
+    })
 .WithName("GetEmail")
 .WithOpenApi();
 
-app.MapPost("/emails/{email}", (string email) =>
-{
-    return $"Got POST {email}";
-})
+app.MapPost("/emails/{email}", 
+    async (IGrainFactory grains, HttpRequest request, string email) =>
+    {
+        var emailSplit = email.Split("@");
+        if (emailSplit.Length != 2)
+        {
+            return Results.BadRequest();
+        }
+
+        var domain = emailSplit.Last().ToString().Trim();
+        var emailGrain = grains.GetGrain<IEmailGrain>(domain);
+        var emailList = await emailGrain.GetEmailsByDomain();
+
+        if (emailList == null)
+        {
+            emailList = new List<String>();
+        }
+
+        if (emailList.AsParallel().Contains(email))
+        {
+            return Results.Conflict();
+        } else {
+            emailList.Add(email);
+            await emailGrain.SetEmailsForDomain(emailList);
+            return Results.Created($"/emails/{email}", email);
+        }
+    })
 .WithName("PostEmail")
 .WithOpenApi();
 

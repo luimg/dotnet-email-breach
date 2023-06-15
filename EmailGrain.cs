@@ -1,19 +1,32 @@
 ﻿using Orleans.Runtime;
 
-public class EmailGrain : IGrain
+public interface IEmailGrain : IGrainWithStringKey
 {
-    private readonly IPersistentState<EmailState> _email;
+    Task<List<string>> GetEmailsByDomain();
+    Task SetEmailsForDomain(List<string> emails);
+}
 
-    public EmailGrain([PersistentState("email", "emailStore")] IPersistentState<EmailState> email)
+public class EmailGrain : Grain, IEmailGrain
+{
+    private readonly IPersistentState<DomainEmailList> _state;
+
+    public EmailGrain([PersistentState("email", "emailStore")] IPersistentState<DomainEmailList> emailState)
     {
-        this._email = email;
+        this._state = emailState;
     }
 
-    public Task<string> GetEmailAsync() => Task.FromResult(this._email.State.Email);
+    public Task<List<string>> GetEmailsByDomain() => Task.FromResult(this._state.State.Emails);
 
-    public async Task SetEmailAsync(string email)
+    public async Task SetEmailsForDomain(List<string> emails)
     {
-        this._email.State.Email = email;
-        await this._email.WriteStateAsync();
+        this._state.State = new DomainEmailList() { Domain = this.GetPrimaryKeyString(), Emails = emails };
+        await this._state.WriteStateAsync();
     }
+}
+
+[GenerateSerializer]
+public record DomainEmailList
+{
+    public List<string> Emails { get; set; }
+    public string Domain { get; set; }
 }
