@@ -2,31 +2,30 @@
 
 public interface IEmailGrain : IGrainWithStringKey
 {
-    Task<List<string>> GetEmailsByDomain();
-    Task SetEmailsForDomain(List<string> emails);
+    Task<string> GetEmail();
+    Task PersistEmail();
 }
 
 public class EmailGrain : Grain, IEmailGrain
 {
-    private readonly IPersistentState<DomainEmailList> _state;
+    private readonly IPersistentState<EmailState> _state;
 
-    public EmailGrain([PersistentState("email", "emailStore")] IPersistentState<DomainEmailList> emailState)
+    public EmailGrain([PersistentState("email", "emailStore")] IPersistentState<EmailState> emailState)
     {
         this._state = emailState;
     }
 
-    public Task<List<string>> GetEmailsByDomain() => Task.FromResult(this._state.State.Emails);
+    public Task<string> GetEmail() => Task.FromResult(this._state.State.Email);
 
-    public async Task SetEmailsForDomain(List<string> emails)
+    public async Task PersistEmail()
     {
-        this._state.State = new DomainEmailList() { Domain = this.GetPrimaryKeyString(), Emails = emails };
+        this._state.State = new EmailState() { Email = this.GetPrimaryKeyString() };
         await this._state.WriteStateAsync();
     }
 }
 
 [GenerateSerializer]
-public record DomainEmailList
+public record EmailState
 {
-    public List<string> Emails { get; set; }
-    public string Domain { get; set; }
+    public string Email { get; set; }
 }
