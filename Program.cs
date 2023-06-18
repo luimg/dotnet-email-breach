@@ -1,5 +1,3 @@
-using Orleans.Configuration;
-
 var builder = WebApplication.CreateBuilder();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -30,34 +28,7 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-app.MapGet("/emails/{email}", 
-    async (IGrainFactory grains, HttpRequest request, string email) =>
-    {
-        var emailSplit = email.Trim().Split("@");
-        if (emailSplit.Length != 2)
-        {
-            return Results.BadRequest();
-        }
-
-        var domain = emailSplit.Last().ToString().Trim();
-        if (domain.Split(".").Length != 2)
-        {
-            return Results.BadRequest();
-        }
-        var emailGrain = grains.GetGrain<IEmailGrain>(email);
-        var exists = await emailGrain.GetEmail();
-
-        if (exists == null) {
-            return Results.NotFound();
-        } else
-        {
-            return Results.Ok();
-        }
-    })
-.WithName("GetEmail")
-.WithOpenApi();
-
-app.MapPost("/emails/{email}", 
+app.MapGet("/emails/{email}",
     async (IGrainFactory grains, HttpRequest request, string email) =>
     {
         var emailSplit = email.Trim().Split("@");
@@ -76,9 +47,39 @@ app.MapPost("/emails/{email}",
 
         if (exists == null)
         {
-            await emailGrain.PersistEmail();
+            return Results.NotFound();
+        }
+        else
+        {
+            return Results.Ok();
+        }
+    })
+.WithName("GetEmail")
+.WithOpenApi();
+
+app.MapPost("/emails/{email}",
+    async (IGrainFactory grains, HttpRequest request, string email) =>
+    {
+        var emailSplit = email.Trim().Split("@");
+        if (emailSplit.Length != 2)
+        {
+            return Results.BadRequest();
+        }
+
+        var domain = emailSplit.Last().ToString().Trim();
+        if (domain.Split(".").Length != 2)
+        {
+            return Results.BadRequest();
+        }
+        var emailGrain = grains.GetGrain<IEmailGrain>(email);
+        var exists = await emailGrain.GetEmail();
+
+        if (exists == null)
+        {
+            emailGrain.SetSavingTimer();
             return Results.Created($"/emails/{email}", email);
-        } else
+        }
+        else
         {
             return Results.Conflict();
         }
