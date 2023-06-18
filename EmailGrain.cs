@@ -28,7 +28,7 @@ public class EmailGrain : Grain, IEmailGrain
             await this._state.WriteStateAsync();
         },
             new EmailState() { Email = this.GetPrimaryKeyString() },
-            TimeSpan.FromSeconds(0),
+            TimeSpan.FromSeconds(0), // save it instantly
             TimeSpan.FromMinutes(5)
         );
     }
